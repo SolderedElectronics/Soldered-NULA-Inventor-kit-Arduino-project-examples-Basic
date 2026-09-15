@@ -1,0 +1,71 @@
+name: Compile examples
+
+# Compiles every example sketch in this repository for the NULA DeepSleep ESP32-S3.
+# Nothing is uploaded to a board here, we only check that each sketch still builds,
+# which catches a broken include, a renamed library function or a typo in the code
+# before anyone tries the example on real hardware.
+
+on:
+  push:
+    paths:
+      - "**.ino"
+      - ".github/workflows/compile-examples.yml"
+  pull_request:
+    paths:
+      - "**.ino"
+      - ".github/workflows/compile-examples.yml"
+  # Lets you start this workflow by hand from the Actions tab.
+  workflow_dispatch:
+
+jobs:
+  compile:
+    name: ${{ matrix.board.name }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      # Keep every board building even if one of them fails, so one failure does
+      # not hide the results of the others.
+      fail-fast: false
+      matrix:
+        board:
+          - name: NULA DeepSleep ESP32-S3
+            fqbn: esp32:esp32:soldered_nula_deepsleep_esp32s3
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      # The ESP32 core is a large download. Caching it keeps later runs short.
+      - name: Cache the Arduino installation
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15
+            ~/Arduino
+          key: arduino-${{ runner.os }}-${{ hashFiles('.github/workflows/compile-examples.yml') }}
+
+      - name: Compile all example sketches
+        uses: arduino/compile-sketches@v1
+        with:
+          fqbn: ${{ matrix.board.fqbn }}
+
+          # The NULA DeepSleep is an ESP32-S3 board and is part of the official
+          # Espressif Arduino core. The version is pinned so that a new core
+          # release cannot break the build without us noticing.
+          platforms: |
+            - name: esp32:esp32
+              source-url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+              version: 3.3.11
+
+          # Libraries the examples need, installed from the Arduino Library Manager.
+          # Add a line here whenever a new example needs a new library.
+          libraries: |
+            - name: Soldered TMP117
+            - name: Soldered Library for Relays
+            - name: Soldered PCF85063A RTC Arduino Library
+
+          # Searched recursively, so a new section folder is picked up automatically.
+          sketch-paths: |
+            - ./
+
+          verbose: false
