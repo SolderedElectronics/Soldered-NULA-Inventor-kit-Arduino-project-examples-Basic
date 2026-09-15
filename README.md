@@ -3,19 +3,24 @@
 [![Compile examples](https://github.com/SolderedElectronics/Soldered-NULA-Inventor-kit-Arduino-project-examples/actions/workflows/compile-examples.yml/badge.svg)](https://github.com/SolderedElectronics/Soldered-NULA-Inventor-kit-Arduino-project-examples/actions/workflows/compile-examples.yml)
 
 Arduino example sketches for the Soldered Inventor kit, built around the
-[NULA DeepSleep ESP32-S3](https://soldered.com/product/nula-deepsleep-esp32-s3-board/). Every example in this
-repository measures something rather than demonstrating it. Where the beginner kit told you the wrong resistor
-makes a dim LED, these pages have you measure how dim, and why, and end up with a formula you can apply to a part
-nobody has written a tutorial about.
+[NULA DeepSleep ESP32-S3](https://soldered.com/product/nula-deepsleep-esp32-s3-board/).
 
-## What this kit is for
+In these examples the board measures its own circuits. Example 1.1 reads the voltage across the resistor in series
+with an LED, then works out the LED's forward voltage and the current through it. Example 3.1 captures a capacitor
+charging and prints the time constant it measured beside the one it calculated. Example 4.2 finds the two pulse
+widths your servo actually stops at, which will not be the ones written in the file.
 
-The board is an ESP32-S3 with a CH340 USB-serial chip, an onboard WS2812B RGB LED, a PCF85063A real-time clock,
-Li-Ion charging, a Qwiic connector, and a deep-sleep current in the single microamps. The examples are built around
-what that combination makes possible: circuits you characterise with the board's own ADC, and a system that sleeps
-until a sensor decides it is needed.
+Every number the sketches print comes from your parts, not from a datasheet.
 
-There are 21 examples across eight sections. Sections 0 to 6 teach one thing at a time. Section 7 combines them.
+## What is on the board
+
+An ESP32-S3 with a CH340 USB-serial chip, an onboard WS2812B RGB LED, a PCF85063A real-time clock, Li-Ion charging
+and a Qwiic connector. Deep-sleep current is in the single microamps.
+
+There are 21 examples across eight sections. Sections 0 to 4 stay on the breadboard and use the ADC to measure
+resistors, capacitors, diodes and transistors. Sections 5 and 6 add the Qwiic modules and deep sleep, and 6.2 hands
+the threshold to the sensor so the board only wakes to ask whether anything happened. Section 7 combines the lot
+into four projects, none of which blocks.
 
 ## Getting started
 
@@ -52,8 +57,8 @@ Sections 0 to 4 need no libraries at all.
 Each example lives in its own folder and opens with **File -> Open**. Start at `0.1` and work down: the later
 examples point back at the earlier ones rather than explaining the same thing twice.
 
-Most sketches have a `MODE` constant near the top. That is not decoration. Each mode is a separate step of the same
-lesson, usually with a rewiring in between, and the modes are meant to be worked through in order.
+Most sketches have a `MODE` constant near the top. Each mode is one step of the same lesson, usually with a
+rewiring in between, so work through them in order instead of uploading once.
 
 ## The examples
 
