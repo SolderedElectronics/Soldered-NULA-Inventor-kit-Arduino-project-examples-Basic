@@ -14,8 +14,8 @@ Every number the sketches print comes from your parts, not from a datasheet.
 
 ## What is on the board
 
-An ESP32-S3 with a CH340 USB-serial chip, an onboard WS2812B RGB LED, a PCF85063A real-time clock, Li-Ion charging
-and a Qwiic connector. Deep-sleep current is in the single microamps.
+An ESP32-S3 with a CH340 USB-serial chip, an onboard WS2812B RGB LED, a PCF85063A real-time clock and a Qwiic
+connector. Deep-sleep current is in the single microamps.
 
 There are 21 examples across eight sections. Sections 0 to 4 stay on the breadboard and use the ADC to measure
 resistors, capacitors, diodes and transistors. Sections 5 and 6 add the Qwiic modules and deep sleep, and 6.2 hands
@@ -195,9 +195,6 @@ part is spare and how much is working stock.
 | 10 kΩ resistor | 15 | 3 | |
 | 100 nF capacitor | 5 | 1 | |
 | 10 µF 25 V electrolytic capacitor | 5 | 1 | Polarised, stripe to GND |
-
-No battery is included. The board charges a Li-Ion cell and sleeps in the single microamps, but measuring that
-needs a cell you supply yourself, because USB current tells you nothing about it.
 
 ## Constants to measure for yourself
 
