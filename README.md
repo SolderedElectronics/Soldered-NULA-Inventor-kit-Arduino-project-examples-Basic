@@ -1,3 +1,5 @@
+<img src="assets/kit-contents.webp" alt="Soldered Inventor Kit" width="100%">
+
 # Inventor kit: Arduino examples
 
 [![Compile examples](https://github.com/SolderedElectronics/Soldered-NULA-Inventor-kit-Arduino-project-examples/actions/workflows/compile-examples.yml/badge.svg)](https://github.com/SolderedElectronics/Soldered-NULA-Inventor-kit-Arduino-project-examples/actions/workflows/compile-examples.yml)
