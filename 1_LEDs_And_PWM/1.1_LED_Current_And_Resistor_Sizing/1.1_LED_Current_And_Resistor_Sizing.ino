@@ -5,7 +5,7 @@
  * @brief       The board measures its own LED circuit: forward voltage, actual current, and what resistor you would
  *              need for 5, 10 and 20 mA. Swap the 330 Ohm for the 10 kOhm and run it again.
  *              For details, connection diagram and more, check out the example documentation at: <link placeholder>
- * @author      GreenyHub
+ * @author      Soldered Electronics
  ***************************************************
  */
 
@@ -16,7 +16,7 @@ const int SENSE_PIN = 4;
 
 // The resistor you actually fitted, in ohms. Change this when you swap the resistor: every number below depends
 // on it being right.
-const float R_OHMS = 10000;
+const float R_OHMS = 330;
 
 const float VSUPPLY_MV = 3300.0;
 
@@ -45,14 +45,16 @@ void loop() {
   for (int i = 0; i < 64; i++) {
     sum += analogReadMilliVolts(SENSE_PIN);
   }
-  float vResistorMv = sum / 64.0;
+  // The resistor sits between the pin and the junction, so the junction is the LED's anode and this
+  // reading is the forward voltage itself. Nothing here has to be worked out.
+  float vForwardMv = sum / 64.0;
+
+  // Whatever the supply gives that does not land across the LED lands across the resistor.
+  float vResistorMv = VSUPPLY_MV - vForwardMv;
 
   // Ohm's law, and the LED is in series with the resistor so this is its current too.
   // Millivolts divided by ohms gives milliamps directly.
   float currentMa = vResistorMv / R_OHMS;
-
-  // Whatever the supply gives that does not land across the resistor lands across the LED.
-  float vForwardMv = VSUPPLY_MV - vResistorMv;
 
   Serial.println();
   Serial.print("Resistor fitted:   ");

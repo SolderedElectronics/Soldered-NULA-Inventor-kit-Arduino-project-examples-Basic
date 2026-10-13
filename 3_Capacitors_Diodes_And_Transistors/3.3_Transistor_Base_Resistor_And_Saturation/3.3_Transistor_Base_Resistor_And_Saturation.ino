@@ -6,7 +6,7 @@
  *              current and the ratio between them. Finds the point where the transistor stops saturating, and ends
  *              with the calculation you would do to pick a base resistor.
  *              For details, connection diagram and more, check out the example documentation at: <link placeholder>
- * @author      GreenyHub
+ * @author      Soldered Electronics
  ***************************************************
  */
 

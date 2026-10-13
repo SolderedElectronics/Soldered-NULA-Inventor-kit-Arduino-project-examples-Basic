@@ -5,7 +5,7 @@
  * @brief       Charges a capacitor through a resistor, captures the rise into a buffer, and prints the measured
  *              time constant next to the calculated one. Do it with the 10 uF, then with the 100 nF.
  *              For details, connection diagram and more, check out the example documentation at: <link placeholder>
- * @author      GreenyHub
+ * @author      Soldered Electronics
  ***************************************************
  */
 

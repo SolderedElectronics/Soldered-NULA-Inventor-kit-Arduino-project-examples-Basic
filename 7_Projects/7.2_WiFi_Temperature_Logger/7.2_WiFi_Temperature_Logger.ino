@@ -6,7 +6,7 @@
  *              button is pressed. Between those it wakes every two seconds to ask the sensor one question, and
  *              sleeps. Times every phase so you can see where the energy goes.
  *              For details, connection diagram and more, check out the example documentation at: <link placeholder>
- * @author      GreenyHub
+ * @author      Soldered Electronics
  ***************************************************
  */
 

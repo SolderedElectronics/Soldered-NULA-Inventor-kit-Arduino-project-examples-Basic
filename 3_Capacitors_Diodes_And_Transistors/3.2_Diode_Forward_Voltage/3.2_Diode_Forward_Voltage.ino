@@ -5,7 +5,7 @@
  * @brief       Logs a diode's forward voltage against the current through it while you turn a pot, so you can see
  *              that the drop is a curve rather than the 0.7 V everybody quotes.
  *              For details, connection diagram and more, check out the example documentation at: <link placeholder>
- * @author      GreenyHub
+ * @author      Soldered Electronics
  ***************************************************
  */
 

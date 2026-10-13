@@ -9,7 +9,7 @@
  *              two seconds for as long as it is closed, and the buzzer warbles continuously instead if the
  *              sensor stops answering.
  *              For details, connection diagram and more, check out the example documentation at: <link placeholder>
- * @author      GreenyHub
+ * @author      Soldered Electronics
  ***************************************************
  */
 

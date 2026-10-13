@@ -5,7 +5,7 @@
  * @brief       Drives eight LEDs from a 74HC595, times three different ways of getting a byte into it, adds
  *              hardware brightness control and a pot-driven bar graph, and then breaks the latch on purpose.
  *              For details, connection diagram and more, check out the example documentation at: <link placeholder>
- * @author      GreenyHub
+ * @author      Soldered Electronics
  ***************************************************
  */
 
@@ -30,7 +30,7 @@ const int POT_PIN = 4;
 /*
   MODE_SPEED       times all three ways of sending a byte, then walks a single bit across the LEDs
   MODE_BRIGHTNESS  a PWM signal on output-enable, with the pot setting the level
-  MODE_BARGRAPH    the pot fills the row of LEDs one at a time, like a volume meter
+  MODE_BARGRAPH    the pot fills the row of LEDs one at a time, as a bar graph
   MODE_BROKEN      latching while shifting, so you can see what the latch is for
 */
 #define MODE_SPEED      0

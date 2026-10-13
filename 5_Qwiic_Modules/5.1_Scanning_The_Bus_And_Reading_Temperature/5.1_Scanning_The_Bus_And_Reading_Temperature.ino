@@ -5,7 +5,7 @@
  * @brief       Finds out what is really on the I2C bus, then reads temperature from the TMP117 continuously and
  *              checks every reading is a real one.
  *              For details, connection diagram and more, check out the example documentation at: <link placeholder>
- * @author      GreenyHub
+ * @author      Soldered Electronics
  ***************************************************
  */
 

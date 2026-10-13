@@ -5,7 +5,7 @@
  * @brief       The first example of the kit. Blinks one LED on IO38 and prints one line to the Serial Monitor, so
  *              you can confirm the board, the driver and the toolchain all work before anything harder.
  *              For details, connection diagram and more, check out the example documentation at: <link placeholder>
- * @author      GreenyHub
+ * @author      Soldered Electronics
  ***************************************************
  */
 

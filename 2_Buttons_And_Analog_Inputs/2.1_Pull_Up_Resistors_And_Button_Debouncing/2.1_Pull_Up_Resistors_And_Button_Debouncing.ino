@@ -5,7 +5,7 @@
  * @brief       One button read five ways: floating, external pull-up, external pull-down, internal pull-up, and a
  *              capture of the bounce itself. The code barely changes; the circuit does.
  *              For details, connection diagram and more, check out the example documentation at: <link placeholder>
- * @author      GreenyHub
+ * @author      Soldered Electronics
  ***************************************************
  */
 
@@ -25,7 +25,7 @@ point of the page, so each mode needs its own wiring before you upload it.
 #define MODE_PULLUP_INT   3
 #define MODE_BOUNCE       4
 
-const int MODE = MODE_BOUNCE;
+const int MODE = MODE_FLOATING;
 
 const int BUTTON_PIN = 21;
 const int LED_PIN = 38;
