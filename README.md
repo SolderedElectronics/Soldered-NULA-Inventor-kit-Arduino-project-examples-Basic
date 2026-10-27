@@ -99,6 +99,7 @@ rewiring in between, so work through them in order instead of uploading once.
 | Example | What you learn | Hardware |
 | --- | --- | --- |
 | [4.1 Eight LEDs from three pins](4_Shift_Register_And_Actuators/4.1_Eight_LEDs_From_Three_Pins) | How a shift register moves data, that driver choice is worth a hundredfold, and what a latch is for | SN74HC595N shift register, 8× LEDs, 8× 330 Ω resistors, 100 nF capacitor, potentiometer |
+| [4.1a Eight LEDs from three pins, no potentiometer](4_Shift_Register_And_Actuators/4.1a_Eight_LEDs_From_Three_Pins) | The same circuit as 4.1 without the knob: the update-rate timing and the broken latch | SN74HC595N shift register, 8× LEDs, 8× 330 Ω resistors, 100 nF capacitor |
 | [4.2 Servo pulses without a library](4_Shift_Register_And_Actuators/4.2_Servo_Pulses_Without_A_Library) | What a servo signal actually is, that parts are not identical, rate limiting, and why a motor gets its own capacitors | SG90 servo, potentiometer, 10 µF capacitor, 100 nF capacitor |
 | [4.3 Driving a buzzer through a transistor](4_Shift_Register_And_Actuators/4.3_Driving_A_Buzzer_Through_A_Transistor) | Why a passive buzzer needs an alternating signal, mechanical resonance, and what a flyback diode is for | Buzzer, NPN transistor, 10 kΩ resistor, 1N4148 diode, potentiometer |
 
@@ -135,11 +136,10 @@ Every example is standalone and picks whichever pins suit it, so you will rewire
 | Single LED | IO38 | Always through its own 330 Ω resistor |
 | Analog inputs | IO4, IO5, IO6, IO7 | Pots, photoresistors and circuit taps |
 | Wake-capable button | IO21 | The only button that can wake the board from deep sleep |
-| Other buttons | IO39, IO40, IO41, IO42 | 7.4 uses all five at once |
+| Second button | IO39 | 7.4 is the only example with two buttons: IO21 and IO39 |
 | Shift register | IO11 data, IO12 clock, IO10 latch, IO13 output enable | IO11 and IO12 are also hardware MOSI and SCK |
 | Servo signal | IO47 | Power from VCC, never 3V3 |
 | Buzzer, through the transistor | IO48 | |
-| TMP117 alert | IO14 | RTC-capable, so it can wake the board |
 | Qwiic / I2C | IO8 SDA, IO9 SCL | No configuration needed, `Wire.begin()` picks these |
 
 Two more are wired on the board itself and need nothing from you: the WS2812B RGB LED is on **IO2** through a 1 kΩ
@@ -189,15 +189,15 @@ part is spare and how much is working stock.
 | SN74HC595N shift register | 1 | 1 | DIP-16 |
 | SG90 servo | 1 | 1 | Powered from VCC, never 3V3 |
 | Buzzer QMB-09B-03 | 1 | 1 | Passive, so it needs an alternating signal |
-| 5 mm LED | pack | 8 | Eight at once in 4.1, 7.1, 7.3 and 7.4 |
-| 10 kΩ potentiometer | 3 | 3 | **No spares.** All three in 7.4 |
-| Small THT pushbutton | 5 | 5 | **No spares.** All five in 7.4 |
+| 5 mm LED | pack | 8 | Eight at once in 4.1 and 7.3 |
+| 10 kΩ potentiometer | 3 | 1 | No example needs more than one |
+| Small THT pushbutton | 5 | 2 | Two at once in 2.1 and 7.4 |
 | 10 kΩ photoresistor | 5 | 2 | |
 | NPN transistor, TO-92 | 5 | 1 | |
-| 1N4148 diode | 5 | 2 | Band is the cathode |
+| 1N4148 diode | 5 | 1 | Band is the cathode |
 | 330 Ω resistor | 25 | 8 | One in series with every LED |
-| 10 kΩ resistor | 15 | 3 | |
-| 100 nF capacitor | 5 | 1 | |
+| 10 kΩ resistor | 15 | 2 | Two at once in 7.3 and 7.4 |
+| 100 nF capacitor | 5 | 2 | Two at once in 7.3: one at the servo, one at the shift register |
 | 10 µF 25 V electrolytic capacitor | 5 | 1 | Polarised, stripe to GND |
 
 ## Constants to measure for yourself

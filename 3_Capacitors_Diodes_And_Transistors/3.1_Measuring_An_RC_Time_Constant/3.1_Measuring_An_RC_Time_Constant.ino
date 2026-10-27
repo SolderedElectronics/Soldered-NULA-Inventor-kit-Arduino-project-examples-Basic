@@ -45,9 +45,9 @@ One trip round the sampling loop costs about 51.8 us, nearly all of it inside an
 finishes after about five time constants, so a capture aimed at three of them puts the 63.2 % crossing well inside,
 and the gap below is whatever is left after the loop has spent its own 51.8 us.
 
-  100 nF: wants 5.9 us per sample, less than the loop costs, so the gap is zero and about 20 points land on the
-          rise. That is all the hardware has to give.
-   10 uF: wants 586 us per sample, so the gap is about 534 us and about 170 points land on the rise.
+The 10 uF wants 586 us between samples, so the gap is about 534 us and the rise is covered comfortably: on this
+bench the crossing landed at sample 181 of 512. Work out the same two numbers for the 100 nF before you fit it,
+and decide whether this loop can keep up with them.
 
 Without the gap the 10 uF capture covers 26 ms of a 500 ms event and never reaches 63.2 % at all. When you need
 more than this loop can give, analogContinuous() hands sampling to the ADC's own DMA engine.
@@ -90,8 +90,8 @@ void loop() {
   delay((int)(5000 * R_OHMS * C_FARADS) + 20);
 
   // Throw one reading away before starting the clock. The first conversion after the ADC has been idle costs about
-  // 344 us against 51.8 us, and it lands where the voltage is moving fastest: with the 100 nF that one slow read
-  // moved the 63.2 % crossing from sample 20 to sample 13.
+  // 344 us against 51.8 us, and it lands where the voltage is moving fastest, so the faster the rise the further
+  // that one slow reading shifts the 63.2 % crossing.
   analogReadMilliVolts(SENSE_PIN);
 
   // Anything between these two lines is time the rise happened without you watching.
@@ -154,8 +154,8 @@ void reportCapture() {
     Serial.print(" of ");
     Serial.println(SAMPLES);
 
-    // How many samples landed on the rise decides whether to believe the answer. The 100 nF gives about 20, good
-    // to a few percent at best; the 10 uF gives about 170.
+    // How many samples landed on the rise decides whether to believe the answer. Below twenty, the figure is
+    // worth a few percent at best, so say so rather than print it as though it were solid.
     if (crossing < 20) {
       Serial.println("Only a handful of samples on the rise. Treat this figure with suspicion.");
     }
