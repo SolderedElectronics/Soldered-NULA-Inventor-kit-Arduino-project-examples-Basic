@@ -5,7 +5,7 @@
  * @brief       A night light that fades up as the room gets dark, combining the photoresistor divider from 2.3 with
  *              the gamma-corrected PWM from 1.2. No new components: everything here has been used before.
  *              For details, connection diagram and more, check out the example documentation at: <link placeholder>
- * @author      Soldered Electronics
+ * @author      Borna Zelenika @ soldered.com
  ***************************************************
  */
 

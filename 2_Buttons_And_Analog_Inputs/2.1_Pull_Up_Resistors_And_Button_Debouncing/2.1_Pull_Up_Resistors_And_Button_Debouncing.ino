@@ -5,7 +5,7 @@
  * @brief       One button read five ways: floating, external pull-up, external pull-down, internal pull-up, and a
  *              capture of the bounce itself. The code barely changes; the circuit does.
  *              For details, connection diagram and more, check out the example documentation at: <link placeholder>
- * @author      Soldered Electronics
+ * @author      Borna Zelenika @ soldered.com
  ***************************************************
  */
 

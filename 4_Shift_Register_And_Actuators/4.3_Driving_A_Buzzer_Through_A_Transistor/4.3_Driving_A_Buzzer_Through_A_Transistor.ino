@@ -5,7 +5,7 @@
  * @brief       Drives a passive buzzer through an NPN transistor from the + row, with a flyback diode.
  *              Sweeps 500 Hz to 5 kHz to find its resonance, then steps the duty cycle at that frequency.
  *              For details, connection diagram and more, check out the example documentation at: <link placeholder>
- * @author      Soldered Electronics
+ * @author      Borna Zelenika @ soldered.com
  ***************************************************
  */
 

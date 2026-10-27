@@ -6,7 +6,7 @@
  *              contacts, and a minimum switching interval keeps a request made during the lockout instead of
  *              dropping it.
  *              For details, connection diagram and more, check out the example documentation at: <link placeholder>
- * @author      Soldered Electronics
+ * @author      Borna Zelenika @ soldered.com
  ***************************************************
  */
 

@@ -5,7 +5,7 @@
  * @brief       One LED, two LEDs alternating, a running light, a car light and a pedestrian crossing, in five modes
  *              idea each. Every mode uses the same five LEDs on the same five pins, so nothing gets rewired.
  *              For details, connection diagram and more, check out the example documentation at: <link placeholder>
- * @author      Soldered Electronics
+ * @author      Borna Zelenika @ soldered.com
  ***************************************************
  */
 

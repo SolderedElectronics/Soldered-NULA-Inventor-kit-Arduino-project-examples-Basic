@@ -5,7 +5,7 @@
  * @brief       Drives eight LEDs from a 74HC595, times three different ways of getting a byte into it, adds
  *              hardware brightness control and a pot-driven bar graph, and then breaks the latch on purpose.
  *              For details, connection diagram and more, check out the example documentation at: <link placeholder>
- * @author      Soldered Electronics
+ * @author      Borna Zelenika @ soldered.com
  ***************************************************
  */
 

@@ -5,7 +5,7 @@
  * @brief       The smallest thing the board can do: light the RGB LED that is already on it. Nothing is wired, so
  *              this proves the cable, the driver, the port and the upload all work before any circuit exists.
  *              For details, connection diagram and more, check out the example documentation at: <link placeholder>
- * @author      Soldered Electronics
+ * @author      Borna Zelenika @ soldered.com
  ***************************************************
  */
 

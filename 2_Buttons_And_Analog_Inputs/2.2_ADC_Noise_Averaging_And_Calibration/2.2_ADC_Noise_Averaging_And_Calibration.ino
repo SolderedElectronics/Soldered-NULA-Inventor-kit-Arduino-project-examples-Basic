@@ -5,7 +5,7 @@
  * @brief       PLOT mode draws one pot three ways at once: raw, a 64-sample mean, and an exponential moving average.
  *              CALIBRATE mode checks the chip's factory millivolt figure against a two-point calibration you perform.
  *              For details, connection diagram and more, check out the example documentation at: <link placeholder>
- * @author      Soldered Electronics
+ * @author      Borna Zelenika @ soldered.com
  ***************************************************
  */
 

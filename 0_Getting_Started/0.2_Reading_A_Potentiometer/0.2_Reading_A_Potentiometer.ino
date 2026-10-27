@@ -5,7 +5,7 @@
  * @brief       Reads a potentiometer and prints it two ways at once, as raw ADC counts and as millivolts, so the
  *              Serial Plotter draws both as traces you can watch while you turn the knob.
  *              For details, connection diagram and more, check out the example documentation at: <link placeholder>
- * @author      Soldered Electronics
+ * @author      Borna Zelenika @ soldered.com
  ***************************************************
  */
 

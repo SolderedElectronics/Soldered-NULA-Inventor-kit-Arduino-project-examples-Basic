@@ -6,7 +6,7 @@
  *              travel. RUN mode maps a pot across those limits through a rate limiter. Two capacitors sit across
  *              the servo's supply to absorb the current the motor pulls when it starts.
  *              For details, connection diagram and more, check out the example documentation at: <link placeholder>
- * @author      Soldered Electronics
+ * @author      Borna Zelenika @ soldered.com
  ***************************************************
  */
 
