@@ -32,7 +32,7 @@ void setup() {
     gamma8[i] = (uint8_t)(pow((float)i / 255.0, 2.2) * 255.0 + 0.5);
   }
 
-  Serial.println("FADE mode: linear ramp, then gamma-corrected ramp. Watch the LED, not the numbers.");
+  Serial.println("Fade: linear ramp, then gamma-corrected ramp. Watch the LED, not the numbers.");
 }
 
 void loop() {

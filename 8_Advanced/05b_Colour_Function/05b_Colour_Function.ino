@@ -23,7 +23,7 @@ void setup() {
   analogReadResolution(12);
   analogSetPinAttenuation(POT_PIN, ADC_11db);
 
-  Serial.println("COLOUR mode: hue on IO4.");
+  Serial.println("Colour: hue on IO4.");
 }
 
 void loop() {
