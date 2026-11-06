@@ -35,7 +35,8 @@ const float C_FARADS = 0.00001;
 const float VSUPPLY_MV = 3300.0;
 
 // Nothing is printed until the capture is over. A Serial.print() in the sampling loop costs tens of microseconds,
-// and with the 100 nF the whole event lasts about five milliseconds.
+// and with the 100 nF the whole event lasts about five milliseconds. The two lists below hold all 512 readings and
+// the time of each one until then.
 const int SAMPLES = 512;
 uint16_t valueMv[SAMPLES];
 uint32_t timeUs[SAMPLES];
@@ -43,7 +44,7 @@ uint32_t timeUs[SAMPLES];
 /*
 One trip round the sampling loop costs about 51.8 us, nearly all of it inside analogReadMilliVolts(). Charging
 finishes after about five time constants, so a capture aimed at three of them puts the 63.2 % crossing well inside,
-and the gap below is whatever is left after the loop has spent its own 51.8 us.
+and the gap between samples is whatever is left after the loop has spent its own 51.8 us. setup() works it out.
 
 The 10 uF wants 586 us between samples, so the gap is about 534 us and the rise is covered comfortably: on this
 bench the crossing landed at sample 181 of 512. Work out the same two numbers for the 100 nF before you fit it,
@@ -54,8 +55,7 @@ more than this loop can give, analogContinuous() hands sampling to the ADC's own
 */
 const float LOOP_COST_US = 51.8;
 const float SPAN_TAUS = 3.0;
-const float WANTED_INTERVAL_US = SPAN_TAUS * R_OHMS * C_FARADS * 1000000.0 / SAMPLES;
-const int SAMPLE_GAP_US = (WANTED_INTERVAL_US > LOOP_COST_US) ? (int)(WANTED_INTERVAL_US - LOOP_COST_US) : 0;
+int sampleGapUs = 0;
 
 void setup() {
   Serial.begin(115200);
@@ -69,18 +69,25 @@ void setup() {
 
   digitalWrite(DRIVE_PIN, LOW);
 
+  // Work out how far apart the samples should be. If the loop is already slower than that, the gap stays at zero.
+  float wantedIntervalUs = SPAN_TAUS * R_OHMS * C_FARADS * 1000000.0 / SAMPLES;
+  if (wantedIntervalUs > LOOP_COST_US) {
+    sampleGapUs = (int)(wantedIntervalUs - LOOP_COST_US);
+  }
+
   Serial.println();
   Serial.print("R = ");
   Serial.print(R_OHMS, 0);
   Serial.print(" ohm, C = ");
   Serial.print(C_FARADS * 1000000.0, 3);
   Serial.print(" uF, gap = ");
-  Serial.print(SAMPLE_GAP_US);
+  Serial.print(sampleGapUs);
   Serial.println(" us per sample");
   Serial.println("Press the button to charge the capacitor and capture the rise.");
 }
 
 void loop() {
+  // Nothing to do until the button is pressed.
   if (digitalRead(BUTTON_PIN) != LOW) {
     return;
   }
@@ -98,24 +105,16 @@ void loop() {
   uint32_t startUs = micros();
   digitalWrite(DRIVE_PIN, HIGH);
 
+  // Take 512 readings as fast as the board allows, and note the time of each one.
   for (int i = 0; i < SAMPLES; i++) {
     valueMv[i] = analogReadMilliVolts(SENSE_PIN);
     timeUs[i] = micros() - startUs;
-    if (SAMPLE_GAP_US > 0) {
-      delayMicroseconds(SAMPLE_GAP_US);
+    if (sampleGapUs > 0) {
+      delayMicroseconds(sampleGapUs);
     }
   }
 
-  reportCapture();
-
-  // Wait for the button to be released before arming again.
-  while (digitalRead(BUTTON_PIN) == LOW) {
-    delay(10);
-  }
-  delay(200);
-}
-
-void reportCapture() {
+  // The capture is over, so now it is safe to print.
   // A capacitor fills quickly at first and then slowly, because the closer it gets to the supply the smaller the
   // voltage difference driving current into it. Tau is the time to reach 63.2 %, and it is R times C, nothing else.
   float tauCalculatedUs = R_OHMS * C_FARADS * 1000000.0;
@@ -174,4 +173,10 @@ void reportCapture() {
     Serial.print(",");
     Serial.println(valueMv[i]);
   }
+
+  // Wait for the button to be released before arming again.
+  while (digitalRead(BUTTON_PIN) == LOW) {
+    delay(10);
+  }
+  delay(200);
 }

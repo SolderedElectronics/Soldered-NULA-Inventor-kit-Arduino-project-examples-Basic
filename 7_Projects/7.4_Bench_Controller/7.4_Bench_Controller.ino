@@ -22,13 +22,10 @@ parts list is short on purpose: one pot, two buttons, the servo, the buzzer, and
 is the WS2812B already on the board.
 
 IO21 is the button that also has to wake the board, so it is the one that needs a pull-up of its own on the
-breadboard. The internal pull-ups switch off during deep sleep, which example 6.1 covers.
+breadboard. The internal pull-ups switch off during deep sleep, which T24 covers.
 */
-const int BUTTON_PINS[2] = {21, 39};
-const int BUTTON_COUNT = 2;
-
-#define BTN_RELAY  0
-#define BTN_BUZZER 1
+const int RELAY_BUTTON_PIN = 21;
+const int BUZZER_BUTTON_PIN = 39;
 
 const int POT_PIN = 4;
 
@@ -39,48 +36,24 @@ const int BUZZER_PIN = 48;
 const uint8_t TMP117_ADDRESS = 0x49;
 const uint8_t RELAY_ADDRESS = 0x30;
 
-// From example 4.3. Yours will be a different number.
+// From T17. Yours will be a different number.
 const int BUZZER_HZ = 2700;
 
-// From example 4.2. Yours will be different numbers.
+// From T19. Yours will be different numbers.
 const int PULSE_MIN_US = 550;
 const int PULSE_MAX_US = 2500;
 const int SERVO_FREQ = 50;
 
 // 14, not 16. The S3 LEDC peripheral caps there and ledcAttach() simply fails above it, leaving the pin silent and
-// saying nothing, which is why both calls below are checked.
+// saying nothing, which is why both calls below are checked. A 14-bit signal has 16384 steps.
 const int SERVO_RESOLUTION = 14;
+const long SERVO_STEPS = 16384;
 const long PERIOD_US = 20000;
 
-// Your measured bounce duration from example 2.1, rounded up.
+// Your measured bounce duration from T8, rounded up.
 const unsigned long DEBOUNCE_MS = 25;
 
 const unsigned long IDLE_SLEEP_MS = 120000;
-
-// 0x49 because JP2 on the breakout ties ADD0 high. A missing module reads 0.0000 rather than failing, so
-// getDeviceID() == 0x117 is the only honest test.
-Soldered_TMP117 tmp(TMP117_ADDRESS);
-
-// No address on this line: this library takes it in begin() instead.
-CH_Relay Relay;
-
-// Debounce state, one set per button, from example 2.1.
-bool buttonState[BUTTON_COUNT];
-bool lastReading[BUTTON_COUNT];
-unsigned long lastChangeMs[BUTTON_COUNT];
-bool buttonPressed[BUTTON_COUNT];
-
-float temperatureC = 0;
-bool sensorOk = false;
-bool relayOn = false;
-bool buzzerOn = false;
-bool chirping = false;
-
-unsigned long lastInputMs = 0;
-unsigned long lastSensorMs = 0;
-unsigned long lastDisplayMs = 0;
-unsigned long lastServoMs = 0;
-unsigned long lastChirpMs = 0;
 
 // Three different rates, none allowed to hold up the others. The buttons are faster than all of them because they
 // are read on every single pass.
@@ -101,6 +74,34 @@ const uint8_t LED_BRIGHTNESS = 32;
 
 const unsigned long CHIRP_MS = 120;
 const unsigned long CHIRP_PERIOD_MS = 2000;
+
+// 0x49 because JP2 on the breakout ties ADD0 high. A missing module reads 0.0000 rather than failing, so asking for
+// getDeviceID() and expecting 0x117 is the only honest test.
+Soldered_TMP117 tmp(TMP117_ADDRESS);
+
+// No address on this line: this library takes it in begin() instead.
+CH_Relay Relay;
+
+// Debounce state for each button, from T8. The buttons idle HIGH because of the pull-ups.
+bool relayButtonState = HIGH;
+bool relayButtonLastReading = HIGH;
+unsigned long relayButtonChangeMs = 0;
+
+bool buzzerButtonState = HIGH;
+bool buzzerButtonLastReading = HIGH;
+unsigned long buzzerButtonChangeMs = 0;
+
+float temperatureC = 0;
+bool sensorOk = false;
+bool relayOn = false;
+bool buzzerOn = false;
+bool chirping = false;
+
+unsigned long lastInputMs = 0;
+unsigned long lastSensorMs = 0;
+unsigned long lastDisplayMs = 0;
+unsigned long lastServoMs = 0;
+unsigned long lastChirpMs = 0;
 
 int currentPulseUs = (PULSE_MIN_US + PULSE_MAX_US) / 2;
 
@@ -123,13 +124,8 @@ void setup() {
   Relay.begin(RELAY_ADDRESS);
   Relay.relayControl(CHANNEL1, LOW);
 
-  for (int i = 0; i < BUTTON_COUNT; i++) {
-    pinMode(BUTTON_PINS[i], INPUT_PULLUP);
-    buttonState[i] = HIGH;
-    lastReading[i] = HIGH;
-    lastChangeMs[i] = 0;
-    buttonPressed[i] = false;
-  }
+  pinMode(RELAY_BUTTON_PIN, INPUT_PULLUP);
+  pinMode(BUZZER_BUTTON_PIN, INPUT_PULLUP);
 
   analogReadResolution(12);
   analogSetPinAttenuation(POT_PIN, ADC_11db);
@@ -152,180 +148,168 @@ void setup() {
   }
 }
 
-/*
-Five jobs, none of which waits for any of the others. Everything on the pages before this one worked in isolation,
-and the reason all of it composes here is that no part of it blocks. Architecture is the one thing that cannot be
-taught on a page about a single component, and it comes down to this.
-*/
 void loop() {
-  serviceButtons();
-  serviceSensor();
-  serviceControls();
-  serviceDisplay();
-  serviceOutputs();
-  serviceSleep();
-}
-
-// Debouncing from 2.1, in the form you actually want it: a function that reports a press once and then forgets it,
-// so the code reacting to a button never has to think about timing.
-void serviceButtons() {
+  // Five jobs, none of which waits for any of the others. Everything on the pages before this one worked in
+  // isolation, and the reason all of it composes here is that no part of it blocks. Architecture is the one thing
+  // that cannot be taught on a page about a single component, and it comes down to this.
+  //
+  // The time is read once per pass, so every job below agrees on what "now" is.
   unsigned long now = millis();
 
-  for (int i = 0; i < BUTTON_COUNT; i++) {
-    bool reading = digitalRead(BUTTON_PINS[i]);
+  // Job 1: the buttons. Debouncing from T8: a reading only counts once it has stayed the same for DEBOUNCE_MS. The
+  // two buttons are handled one after the other, with the same steps.
+  //
+  // The relay button, IO21.
+  bool relayReading = digitalRead(RELAY_BUTTON_PIN);
 
-    if (reading != lastReading[i]) {
-      lastReading[i] = reading;
-      lastChangeMs[i] = now;
-    }
+  if (relayReading != relayButtonLastReading) {
+    relayButtonLastReading = relayReading;
+    relayButtonChangeMs = now;
+  }
 
-    if (now - lastChangeMs[i] > DEBOUNCE_MS && reading != buttonState[i]) {
-      buttonState[i] = reading;
+  if (now - relayButtonChangeMs > DEBOUNCE_MS && relayReading != relayButtonState) {
+    relayButtonState = relayReading;
 
-      // Pull-ups mean LOW is pressed.
-      if (reading == LOW) {
-        buttonPressed[i] = true;
-        lastInputMs = now;
+    // Pull-ups mean LOW is pressed.
+    if (relayReading == LOW) {
+      lastInputMs = now;
+
+      // Closing the relay locks the controls. The ignored press further down is the point of this design: it is still
+      // scanned, still debounced, and then dropped with a line saying so. A program that blocks elsewhere never sees
+      // the press at all, and from the bench the two look identical. One is a decision and the other is a bug, and
+      // what tells them apart is that a program which chose to ignore you can say so.
+      relayOn = !relayOn;
+
+      if (relayOn) {
+        Relay.relayControl(CHANNEL1, HIGH);
+        Serial.println("relay on, controls locked");
+      } else {
+        Relay.relayControl(CHANNEL1, LOW);
+        Serial.println("relay off, controls unlocked");
       }
     }
   }
-}
 
-bool takePress(int index) {
-  if (!buttonPressed[index]) {
-    return false;
-  }
-  buttonPressed[index] = false;
-  return true;
-}
+  // The buzzer button, IO39.
+  bool buzzerReading = digitalRead(BUZZER_BUTTON_PIN);
 
-void serviceSensor() {
-  if (millis() - lastSensorMs < SENSOR_INTERVAL_MS) {
-    return;
-  }
-  lastSensorMs = millis();
-
-  // Asked every time, so pulling the Qwiic cable out mid-run is caught on the next read rather than never.
-  sensorOk = (tmp.getDeviceID() == 0x117);
-  if (sensorOk) {
-    temperatureC = tmp.getTemperature();
-  }
-}
-
-/*
-Closing the relay locks the controls. The ignored press is the point of this function: it is still scanned, still
-debounced, still taken off the queue, and then dropped with a line saying so. A program that blocks elsewhere never
-sees the press at all, and from the bench the two look identical. One is a decision and the other is a bug, and
-what tells them apart is that a program which chose to ignore you can say so.
-*/
-void serviceControls() {
-  if (takePress(BTN_RELAY)) {
-    relayOn = !relayOn;
-    Relay.relayControl(CHANNEL1, relayOn ? HIGH : LOW);
-    Serial.print("relay ");
-    Serial.print(relayOn ? "on" : "off");
-    Serial.println(relayOn ? ", controls locked" : ", controls unlocked");
+  if (buzzerReading != buzzerButtonLastReading) {
+    buzzerButtonLastReading = buzzerReading;
+    buzzerButtonChangeMs = now;
   }
 
-  if (takePress(BTN_BUZZER)) {
-    if (relayOn) {
-      Serial.println("locked. Press the button on IO21 to unlock.");
-    } else {
-      buzzerOn = !buzzerOn;
-      Serial.print("buzzer ");
-      Serial.println(buzzerOn ? "on" : "off");
+  if (now - buzzerButtonChangeMs > DEBOUNCE_MS && buzzerReading != buzzerButtonState) {
+    buzzerButtonState = buzzerReading;
+
+    if (buzzerReading == LOW) {
+      lastInputMs = now;
+
+      if (relayOn) {
+        Serial.println("locked. Press the button on IO21 to unlock.");
+      } else {
+        buzzerOn = !buzzerOn;
+
+        if (buzzerOn) {
+          Serial.println("buzzer on");
+        } else {
+          Serial.println("buzzer off");
+        }
+      }
     }
   }
-}
 
-void serviceDisplay() {
-  if (millis() - lastDisplayMs < DISPLAY_INTERVAL_MS) {
-    return;
-  }
-  lastDisplayMs = millis();
+  // Job 2: the sensor, every 400 ms.
+  if (now - lastSensorMs >= SENSOR_INTERVAL_MS) {
+    lastSensorMs = now;
 
-  if (!sensorOk) {
-    // Flashing white, so a missing sensor can never be mistaken for a reading at one end of the colour range.
-    bool on = (millis() / 300) % 2;
-    rgbLedWrite(RGB_BUILTIN, on ? LED_BRIGHTNESS : 0, on ? LED_BRIGHTNESS : 0, on ? LED_BRIGHTNESS : 0);
-  } else if (relayOn) {
-    // Green appears nowhere in the gradient below, so it means one thing: the controls are locked. A state that
-    // changes what the buttons do has to be visible without the serial monitor.
-    rgbLedWrite(RGB_BUILTIN, 0, LED_BRIGHTNESS, 0);
-  } else {
-    float span = (temperatureC - COLOUR_MIN_C) / (COLOUR_MAX_C - COLOUR_MIN_C);
-    span = constrain(span, 0.0, 1.0);
+    // Asked every time, so pulling the Qwiic cable out mid-run is caught on the next read rather than never.
+    sensorOk = (tmp.getDeviceID() == 0x117);
 
-    // rgbLedWrite() takes plain red, green, blue and sorts out the GRB byte order the WS2812B actually wants.
-    rgbLedWrite(RGB_BUILTIN, (uint8_t)(span * LED_BRIGHTNESS), 0, (uint8_t)((1.0 - span) * LED_BRIGHTNESS));
-  }
-}
-
-void serviceOutputs() {
-  serviceBuzzer();
-
-  if (millis() - lastServoMs < SERVO_INTERVAL_MS) {
-    return;
-  }
-  lastServoMs = millis();
-
-  // Locked, the pot is not read and the needle holds still, but this job keeps running on its 30 ms timer either
-  // way. Stopping a job and stopping what a job does to the outside world are different things.
-  if (relayOn) {
-    return;
+    if (sensorOk) {
+      temperatureC = tmp.getTemperature();
+    }
   }
 
-  int target = map(analogRead(POT_PIN), 0, 4095, PULSE_MIN_US, PULSE_MAX_US);
+  // Job 3: the RGB LED on the board, every 80 ms.
+  if (now - lastDisplayMs >= DISPLAY_INTERVAL_MS) {
+    lastDisplayMs = now;
 
-  int difference = target - currentPulseUs;
-  difference = constrain(difference, -SERVO_STEP_US, SERVO_STEP_US);
-  currentPulseUs += difference;
+    if (!sensorOk) {
+      // Flashing white, so a missing sensor can never be mistaken for a reading at one end of the colour range. The
+      // LED is on for 300 ms, off for 300 ms, and so on, which is what dividing the time by 300 and looking at
+      // whether the result is odd or even gives you.
+      if ((now / 300) % 2 == 1) {
+        rgbLedWrite(RGB_BUILTIN, LED_BRIGHTNESS, LED_BRIGHTNESS, LED_BRIGHTNESS);
+      } else {
+        rgbLedWrite(RGB_BUILTIN, 0, 0, 0);
+      }
+    } else if (relayOn) {
+      // Green appears nowhere in the gradient below, so it means one thing: the controls are locked. A state that
+      // changes what the buttons do has to be visible without the serial monitor.
+      rgbLedWrite(RGB_BUILTIN, 0, LED_BRIGHTNESS, 0);
+    } else {
+      // span runs from 0.0 at the cold end of the range to 1.0 at the hot end.
+      float span = (temperatureC - COLOUR_MIN_C) / (COLOUR_MAX_C - COLOUR_MIN_C);
+      span = constrain(span, 0.0, 1.0);
 
-  uint32_t duty = (uint32_t)((float)currentPulseUs * (float)(1UL << SERVO_RESOLUTION) / (float)PERIOD_US);
-  ledcWrite(SERVO_PIN, duty);
-}
+      // rgbLedWrite() takes plain red, green, blue and sorts out the GRB byte order the WS2812B actually wants. As the
+      // room warms, red grows and blue shrinks.
+      rgbLedWrite(RGB_BUILTIN, (uint8_t)(span * LED_BRIGHTNESS), 0, (uint8_t)((1.0 - span) * LED_BRIGHTNESS));
+    }
+  }
 
-// A chirp every two seconds, written without a single delay. Two timestamps and a flag do what delay(120) would
-// have done, and the needle keeps moving and the buttons keep answering while it sounds.
-void serviceBuzzer() {
+  // Job 4: the buzzer. A chirp every two seconds, written without a single delay. Two timestamps and a flag do what
+  // delay(120) would have done, and the needle keeps moving and the buttons keep answering while it sounds.
   if (!buzzerOn) {
     if (chirping) {
       chirping = false;
       ledcWrite(BUZZER_PIN, 0);
     }
-    return;
+  } else {
+    if (!chirping && now - lastChirpMs >= CHIRP_PERIOD_MS) {
+      chirping = true;
+      lastChirpMs = now;
+      // Half of full scale. T18 measured loudness peaking at 50 % duty and falling again above it.
+      ledcWrite(BUZZER_PIN, 128);
+    }
+
+    if (chirping && now - lastChirpMs >= CHIRP_MS) {
+      chirping = false;
+      ledcWrite(BUZZER_PIN, 0);
+    }
   }
 
-  unsigned long now = millis();
+  // Job 5: the servo, every 30 ms. Locked, the pot is not read and the needle holds still, but this job keeps
+  // running on its 30 ms timer either way. Stopping a job and stopping what a job does to the outside world are
+  // different things.
+  if (now - lastServoMs >= SERVO_INTERVAL_MS) {
+    lastServoMs = now;
 
-  if (!chirping && now - lastChirpMs >= CHIRP_PERIOD_MS) {
-    chirping = true;
-    lastChirpMs = now;
-    // Half of full scale. Example 4.3 measured loudness peaking at 50 % duty and falling again above it.
-    ledcWrite(BUZZER_PIN, 128);
+    if (!relayOn) {
+      int target = map(analogRead(POT_PIN), 0, 4095, PULSE_MIN_US, PULSE_MAX_US);
+
+      // Move towards the target by at most SERVO_STEP_US a time, so the needle glides.
+      int difference = target - currentPulseUs;
+      difference = constrain(difference, -SERVO_STEP_US, SERVO_STEP_US);
+      currentPulseUs += difference;
+
+      long duty = (long)currentPulseUs * SERVO_STEPS / PERIOD_US;
+      ledcWrite(SERVO_PIN, duty);
+    }
   }
 
-  if (chirping && now - lastChirpMs >= CHIRP_MS) {
-    chirping = false;
+  // Sleep: two minutes without a press and the whole thing sleeps, waking on IO21. Everything it was doing is lost,
+  // because deep sleep is not pausing, and setup() rebuilds it on the way back. The relay is dropped first: a latched
+  // coil would draw more asleep than the chip does.
+  if (now - lastInputMs >= IDLE_SLEEP_MS) {
+    Serial.println("idle for two minutes. Sleeping. Press the button on IO21 to wake.");
+    Serial.flush();
+
     ledcWrite(BUZZER_PIN, 0);
+    Relay.relayControl(CHANNEL1, LOW);
+    rgbLedWrite(RGB_BUILTIN, 0, 0, 0);
+
+    esp_sleep_enable_ext0_wakeup((gpio_num_t)RELAY_BUTTON_PIN, 0);
+    esp_deep_sleep_start();
   }
-}
-
-// Two minutes without a press and the whole thing sleeps, waking on IO21. Everything it was doing is lost, because
-// deep sleep is not pausing, and setup() rebuilds it on the way back. The relay is dropped first: a latched coil
-// would draw more asleep than the chip does.
-void serviceSleep() {
-  if (millis() - lastInputMs < IDLE_SLEEP_MS) {
-    return;
-  }
-
-  Serial.println("idle for two minutes. Sleeping. Press the button on IO21 to wake.");
-  Serial.flush();
-
-  ledcWrite(BUZZER_PIN, 0);
-  Relay.relayControl(CHANNEL1, LOW);
-  rgbLedWrite(RGB_BUILTIN, 0, 0, 0);
-
-  esp_sleep_enable_ext0_wakeup((gpio_num_t)BUTTON_PINS[BTN_RELAY], 0);
-  esp_deep_sleep_start();
 }

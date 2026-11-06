@@ -40,6 +40,12 @@ const float R_LOAD_OHMS = 330.0;
 
 const float VSUPPLY_MV = 3300.0;
 
+// Used by the design step at the end. A datasheet gain is a minimum, so assume a pessimistic one, and overdrive the
+// base by five so the transistor stays well past the edge of saturation. 700 mV is what the base sits at.
+const float PESSIMISTIC_GAIN = 50.0;
+const float OVERDRIVE = 5.0;
+const float V_BE_MV = 700.0;
+
 void setup() {
   Serial.begin(115200);
   delay(1000);
@@ -57,18 +63,43 @@ void setup() {
 }
 
 void loop() {
-  float vDrive = averaged(SENSE_DRIVE_PIN);
-  float vA = averaged(SENSE_A_PIN);
-  float vBase = averaged(SENSE_BASE_PIN);
-  float vC = averaged(SENSE_C_PIN);
+  // Every voltage below is the mean of 64 readings, because a single one carries a few counts of noise. Each block
+  // adds up 64 readings and divides by 64.
+  long driveSum = 0;
+  for (int i = 0; i < 64; i++) {
+    driveSum += analogReadMilliVolts(SENSE_DRIVE_PIN);
+  }
+  float vDrive = driveSum / 64.0;
+
+  long aSum = 0;
+  for (int i = 0; i < 64; i++) {
+    aSum += analogReadMilliVolts(SENSE_A_PIN);
+  }
+  float vA = aSum / 64.0;
+
+  long baseSum = 0;
+  for (int i = 0; i < 64; i++) {
+    baseSum += analogReadMilliVolts(SENSE_BASE_PIN);
+  }
+  float vBase = baseSum / 64.0;
+
+  long cSum = 0;
+  for (int i = 0; i < 64; i++) {
+    cSum += analogReadMilliVolts(SENSE_C_PIN);
+  }
+  float vC = cSum / 64.0;
 
   // Everything in that branch is in series, so this is the current through the LED and the transistor too.
   float loadMa = (VSUPPLY_MV - vA) / R_LOAD_OHMS;
 
   // Both ends are measured rather than assumed: the pot is a 10 kOhm divider, so its wiper sags as soon as the base
   // draws anything. Notice how little the base voltage moves across the sweep, because it is a diode holding near
-  // 0.7 V, which is why designCheck() subtracts it instead of assuming the full supply reaches the resistor.
-  float baseMa = (vDrive > vBase) ? ((vDrive - vBase) / R_BASE_OHMS) : 0.0;
+  // 0.7 V, which is why the design step at the end subtracts it instead of assuming the full supply reaches the
+  // resistor.
+  float baseMa = 0.0;
+  if (vDrive > vBase) {
+    baseMa = (vDrive - vBase) / R_BASE_OHMS;
+  }
 
   /*
   This ratio is not the transistor's gain, and reading it as one is the trap the example is built around. While it
@@ -80,7 +111,10 @@ void loop() {
   against 250 at the edge, same transistor, same wiring. Take the edge figure as give or take a fifth, since it
   comes from a 53 mV difference between two ADC pins.
   */
-  float ratio = (baseMa > 0.0001) ? (loadMa / baseMa) : 0;
+  float ratio = 0;
+  if (baseMa > 0.0001) {
+    ratio = loadMa / baseMa;
+  }
 
   Serial.println();
   Serial.print("wiper voltage:     ");
@@ -106,9 +140,12 @@ void loop() {
   Serial.print("current ratio:     ");
   Serial.println(ratio, 0);
 
-  // This ADC pins at 4095 near 3140 mV, as 3.2 found. Here that happens with the transistor off, when the bottom of
+  // This ADC pins at 4095 near 3140 mV, as T15 found. Here that happens with the transistor off, when the bottom of
   // the load resistor sits at the full supply.
-  bool transistorOff = (vA > 3100);
+  bool transistorOff = false;
+  if (vA > 3100) {
+    transistorOff = true;
+  }
 
   if (transistorOff) {
     Serial.println("state: off. Load current is at the ADC ceiling and the collector is a floating node, so both");
@@ -122,46 +159,26 @@ void loop() {
     Serial.println("state: NOT saturated. Touch the transistor, it is dissipating the difference.");
   }
 
-  // With nothing conducting the calculation would run on the ceiling reading and print nonsense.
+  // The design step. With nothing conducting it would run on the ceiling reading and print nonsense, so skip it then.
+  // Start from the load current you need, divide by the pessimistic gain, and multiply by the overdrive. Overdriving
+  // the base costs almost nothing, so err generous.
   if (!transistorOff) {
-    designCheck(loadMa, baseMa);
+    float neededBaseMa = (loadMa / PESSIMISTIC_GAIN) * OVERDRIVE;
+    float rRecommended = (VSUPPLY_MV - V_BE_MV) / neededBaseMa;
+
+    Serial.print("safe base resistor for this load: about ");
+    Serial.print(rRecommended / 1000.0, 1);
+    Serial.println(" kOhm");
+
+    // Convert what the pot is doing right now back into the resistor that would do the same job from 3.3 V. Sweep
+    // to the edge and that is the largest base resistor this load could have got away with.
+    if (baseMa > 0.0001) {
+      float rEquivalent = (VSUPPLY_MV - V_BE_MV) / baseMa;
+      Serial.print("this base current equals a ");
+      Serial.print(rEquivalent / 1000.0, 1);
+      Serial.println(" kOhm resistor driven from 3V3");
+    }
   }
 
   delay(500);
-}
-
-/*
-The design step. Start from the load current you need, divide by a pessimistic gain because a datasheet figure is a
-minimum, then multiply by five so the transistor stays well past the edge of saturation. Overdriving the base costs
-almost nothing, so err generous.
-
-The second print converts what the pot is doing right now back into the resistor that would do the same job from
-3.3 V. Sweep to the edge and that is the largest base resistor this load could have got away with.
-*/
-void designCheck(float loadMa, float actualBaseMa) {
-  const float PESSIMISTIC_GAIN = 50.0;
-  const float OVERDRIVE = 5.0;
-  const float V_BE_MV = 700.0;
-
-  float neededBaseMa = (loadMa / PESSIMISTIC_GAIN) * OVERDRIVE;
-  float rRecommended = (VSUPPLY_MV - V_BE_MV) / neededBaseMa;
-
-  Serial.print("safe base resistor for this load: about ");
-  Serial.print(rRecommended / 1000.0, 1);
-  Serial.println(" kOhm");
-
-  if (actualBaseMa > 0.0001) {
-    float rEquivalent = (VSUPPLY_MV - V_BE_MV) / actualBaseMa;
-    Serial.print("this base current equals a ");
-    Serial.print(rEquivalent / 1000.0, 1);
-    Serial.println(" kOhm resistor driven from 3V3");
-  }
-}
-
-float averaged(int pin) {
-  long sum = 0;
-  for (int i = 0; i < 64; i++) {
-    sum += analogReadMilliVolts(pin);
-  }
-  return sum / 64.0;
 }

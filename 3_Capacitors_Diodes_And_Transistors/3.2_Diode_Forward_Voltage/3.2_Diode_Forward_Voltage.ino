@@ -49,12 +49,33 @@ a slope at a current somebody else picked. Both ends of the sweep are limited by
 which is why readings are thrown away there instead of printed.
 */
 void loop() {
-  // The two pins are not read at the same instant and the pot is moving, so an anode reading from either side of
-  // the cathode reading, averaged, cancels most of the skew. Without it a fast turn prints a forward voltage that
-  // no diode has.
-  float vAnodeMv = averaged(ANODE_PIN);
-  float vCathodeMv = averaged(CATHODE_PIN);
-  vAnodeMv = (vAnodeMv + averaged(ANODE_PIN)) / 2.0;
+  // A single reading carries a few counts of noise, which at the bottom of the sweep is a large slice of the
+  // number, so every voltage here is the mean of 64 readings. Each block below adds up 64 readings and divides.
+
+  // First anode reading.
+  long anodeSum = 0;
+  for (int i = 0; i < 64; i++) {
+    anodeSum += analogReadMilliVolts(ANODE_PIN);
+  }
+  float vAnodeFirstMv = anodeSum / 64.0;
+
+  // Cathode reading.
+  long cathodeSum = 0;
+  for (int i = 0; i < 64; i++) {
+    cathodeSum += analogReadMilliVolts(CATHODE_PIN);
+  }
+  float vCathodeMv = cathodeSum / 64.0;
+
+  // Second anode reading. The two pins are not read at the same instant and the pot is moving, so an anode reading
+  // from either side of the cathode reading, averaged, cancels most of the skew. Without it a fast turn prints a
+  // forward voltage that no diode has.
+  long anodeSum2 = 0;
+  for (int i = 0; i < 64; i++) {
+    anodeSum2 += analogReadMilliVolts(ANODE_PIN);
+  }
+  float vAnodeSecondMv = anodeSum2 / 64.0;
+
+  float vAnodeMv = (vAnodeFirstMv + vAnodeSecondMv) / 2.0;
 
   float vForwardMv = vAnodeMv - vCathodeMv;
   float currentMa = vCathodeMv / R_SENSE_OHMS;
@@ -76,14 +97,4 @@ void loop() {
   Serial.println(vForwardMv, 0);
 
   delay(100);
-}
-
-// A single reading carries a few counts of noise, which at the bottom of the sweep is a large slice of the number,
-// so every reading here is the mean of 64.
-float averaged(int pin) {
-  long sum = 0;
-  for (int i = 0; i < 64; i++) {
-    sum += analogReadMilliVolts(pin);
-  }
-  return sum / 64.0;
 }

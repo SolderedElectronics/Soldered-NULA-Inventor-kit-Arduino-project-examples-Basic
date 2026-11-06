@@ -3,7 +3,7 @@
  *
  * @file        4.1a_Eight_LEDs_From_Three_Pins.ino
  * @brief       Drives eight LEDs from a 74HC595, times three different ways of getting a byte into it, and
- *              then breaks the latch on purpose.
+ *              then walks a single lit bit across the row.
  *              For details, connection diagram and more, check out the example documentation at: <link placeholder>
  * @author      Borna Zelenika @ soldered.com
  ***************************************************
@@ -26,15 +26,7 @@ const int CLOCK_PIN = 12;
 const int LATCH_PIN = 10;
 const int OE_PIN = 13;
 
-/*
-  MODE_SPEED   times all three ways of sending a byte, then walks a single bit across the LEDs
-  MODE_BROKEN  latching while shifting, so you can see what the latch is for
-*/
-#define MODE_SPEED  0
-#define MODE_BROKEN 1
-
-const int MODE = MODE_SPEED;
-
+// How many times each of the three ways sends the byte while it is being timed.
 const long TIMING_UPDATES = 10000;
 
 void setup() {
@@ -54,125 +46,145 @@ void setup() {
   Serial.println();
   Serial.println("74HC595 on IO11 (data), IO12 (clock), IO10 (latch), IO13 (output enable)");
 
-  if (MODE == MODE_SPEED) {
-    timeAllThree();
-  }
-}
-
-void loop() {
-  switch (MODE) {
-    case MODE_SPEED:
-      // The timing run handed the data and clock pins to the SPI peripheral, so the walk has to use the SPI writer
-      // from here on. The LEDs cannot tell the difference.
-      walkOneBit(writeSpi);
-      break;
-    case MODE_BROKEN:
-      brokenMode();
-      break;
-  }
-}
-
-/*
-The manual version, one pin write at a time, which is what every other method here does underneath. A shift
-register is a row of eight memory cells: put a bit on the data pin, pulse the clock, and every cell hands its
-contents to the next while the first takes the new bit.
-
-Nothing appears on the outputs while this happens. They are fed from a second set of latches that only copy the row
-when the latch pin is pulsed.
-*/
-void writeManual(uint8_t value) {
-  for (int bit = 7; bit >= 0; bit--) {
-    digitalWrite(DATA_PIN, (value >> bit) & 1);
-
-    digitalWrite(CLOCK_PIN, HIGH);
-    digitalWrite(CLOCK_PIN, LOW);
-  }
-
-  digitalWrite(LATCH_PIN, HIGH);
-  digitalWrite(LATCH_PIN, LOW);
-}
-
-// The same loop, written for you, and it calls digitalWrite() exactly as the manual version does. Convenience, not
-// speed, so expect its number to land close.
-void writeShiftOut(uint8_t value) {
-  shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, value);
-
-  digitalWrite(LATCH_PIN, HIGH);
-  digitalWrite(LATCH_PIN, LOW);
-}
-
-// The same signalling again, except the chip's hardware generates the clock. The processor hands over one byte and
-// is free until it is done.
-void writeSpi(uint8_t value) {
-  SPI.beginTransaction(SPISettings(8000000, MSBFIRST, SPI_MODE0));
-  SPI.transfer(value);
-  SPI.endTransaction();
-
-  digitalWrite(LATCH_PIN, HIGH);
-  digitalWrite(LATCH_PIN, LOW);
-}
-
-// Same circuit, same result, three ways of getting there, and the gap between slowest and fastest is large. How you
-// talk to a part is a design decision with a number attached.
-void timeAllThree() {
+  // Same circuit, same result, three ways of sending the byte, and the gap between slowest and fastest is large.
+  // How you talk to a part is a design decision with a number attached. Every way below sends the same byte,
+  // 0b10101010, and each one is repeated TIMING_UPDATES times while the clock runs.
   Serial.println();
 
-  Serial.print("manual pin writes: ");
-  Serial.print(measure(writeManual));
-  Serial.println(" updates per second");
-
-  Serial.print("shiftOut():        ");
-  Serial.print(measure(writeShiftOut));
-  Serial.println(" updates per second");
-
-  // SPI must come last. SPI.begin() takes the data and clock pins away from the GPIO driver, and after that a
-  // digitalWrite() to either does nothing. There is no way back inside one run.
-  SPI.begin(CLOCK_PIN, -1, DATA_PIN, -1);
-
-  Serial.print("hardware SPI:      ");
-  Serial.print(measure(writeSpi));
-  Serial.println(" updates per second");
-
-  Serial.println();
-}
-
-long measure(void (*writer)(uint8_t)) {
+  // Way 1, by hand. A shift register is a row of eight memory cells: put a bit on the data pin, pulse the clock,
+  // and every cell hands its contents to the next while the first takes the new bit. Eight bits means eight of
+  // those steps, written out here from the first bit to the last: HIGH, LOW, HIGH, LOW and so on.
+  //
+  // Nothing appears on the outputs while this happens. They are fed from a second set of latches that only copy
+  // the row when the latch pin is pulsed, which is the last two lines.
   unsigned long start = micros();
   for (long i = 0; i < TIMING_UPDATES; i++) {
-    writer((uint8_t)i);
-  }
-  unsigned long elapsed = micros() - start;
-
-  return (long)(TIMING_UPDATES * 1000000.0 / elapsed);
-}
-
-// Clock one lit bit along the row slowly enough to follow with your eye. With MSBFIRST the last bit shifted lands
-// on QA, so QA is the least significant bit and QH the most significant.
-void walkOneBit(void (*writer)(uint8_t)) {
-  for (int i = 0; i < 8; i++) {
-    writer(1 << i);
-    delay(150);
-  }
-}
-
-/*
-The latch pulsed after every single bit instead of once at the end, so the outputs show the register mid-shift eight
-times per byte. The LEDs blur and the pattern you asked for is never actually displayed.
-*/
-void brokenMode() {
-  uint8_t value = 0b11110000;
-
-  for (int bit = 7; bit >= 0; bit--) {
-    digitalWrite(DATA_PIN, (value >> bit) & 1);
+    digitalWrite(DATA_PIN, HIGH);
     digitalWrite(CLOCK_PIN, HIGH);
     digitalWrite(CLOCK_PIN, LOW);
 
-    // The mistake, on purpose.
+    digitalWrite(DATA_PIN, LOW);
+    digitalWrite(CLOCK_PIN, HIGH);
+    digitalWrite(CLOCK_PIN, LOW);
+
+    digitalWrite(DATA_PIN, HIGH);
+    digitalWrite(CLOCK_PIN, HIGH);
+    digitalWrite(CLOCK_PIN, LOW);
+
+    digitalWrite(DATA_PIN, LOW);
+    digitalWrite(CLOCK_PIN, HIGH);
+    digitalWrite(CLOCK_PIN, LOW);
+
+    digitalWrite(DATA_PIN, HIGH);
+    digitalWrite(CLOCK_PIN, HIGH);
+    digitalWrite(CLOCK_PIN, LOW);
+
+    digitalWrite(DATA_PIN, LOW);
+    digitalWrite(CLOCK_PIN, HIGH);
+    digitalWrite(CLOCK_PIN, LOW);
+
+    digitalWrite(DATA_PIN, HIGH);
+    digitalWrite(CLOCK_PIN, HIGH);
+    digitalWrite(CLOCK_PIN, LOW);
+
+    digitalWrite(DATA_PIN, LOW);
+    digitalWrite(CLOCK_PIN, HIGH);
+    digitalWrite(CLOCK_PIN, LOW);
+
     digitalWrite(LATCH_PIN, HIGH);
     digitalWrite(LATCH_PIN, LOW);
-
-    delay(120);
   }
+  unsigned long elapsed = micros() - start;
+  long updatesPerSecond = (long)(TIMING_UPDATES * 1000000.0 / elapsed);
 
-  delay(400);
+  Serial.print("manual pin writes: ");
+  Serial.print(updatesPerSecond);
+  Serial.println(" updates per second");
+
+  // Way 2, with shiftOut(). The same eight steps, written for you, and it calls digitalWrite() exactly as the
+  // lines above do. Convenience, not speed, so expect its number to land close.
+  start = micros();
+  for (long i = 0; i < TIMING_UPDATES; i++) {
+    shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, 0b10101010);
+
+    digitalWrite(LATCH_PIN, HIGH);
+    digitalWrite(LATCH_PIN, LOW);
+  }
+  elapsed = micros() - start;
+  updatesPerSecond = (long)(TIMING_UPDATES * 1000000.0 / elapsed);
+
+  Serial.print("shiftOut():        ");
+  Serial.print(updatesPerSecond);
+  Serial.println(" updates per second");
+
+  // Way 3, with hardware SPI. The chip's hardware generates the clock, so the processor hands over one byte and
+  // is free until it is done.
+  //
+  // This has to come last. SPI.begin() takes the data and clock pins away from the GPIO driver, and after that a
+  // digitalWrite() to either does nothing. There is no way back inside one run.
+  SPI.begin(CLOCK_PIN, -1, DATA_PIN, -1);
+  SPI.setFrequency(8000000);
+
+  start = micros();
+  for (long i = 0; i < TIMING_UPDATES; i++) {
+    SPI.transfer(0b10101010);
+
+    digitalWrite(LATCH_PIN, HIGH);
+    digitalWrite(LATCH_PIN, LOW);
+  }
+  elapsed = micros() - start;
+  updatesPerSecond = (long)(TIMING_UPDATES * 1000000.0 / elapsed);
+
+  Serial.print("hardware SPI:      ");
+  Serial.print(updatesPerSecond);
+  Serial.println(" updates per second");
+
+  Serial.println();
+}
+
+// Clock one lit bit along the row slowly enough to follow with your eye. The timing run handed the data and clock
+// pins to the SPI hardware, so the walk sends its bytes with SPI from here on. The LEDs cannot tell the difference.
+//
+// Each byte has a single bit set: 1 is 0b00000001, 2 is 0b00000010, 4 is 0b00000100 and so on up to 128. The last
+// bit sent lands on QA, so QA is the least significant bit and QH the most significant.
+void loop() {
+  SPI.transfer(1);
+  digitalWrite(LATCH_PIN, HIGH);
+  digitalWrite(LATCH_PIN, LOW);
+  delay(150);
+
+  SPI.transfer(2);
+  digitalWrite(LATCH_PIN, HIGH);
+  digitalWrite(LATCH_PIN, LOW);
+  delay(150);
+
+  SPI.transfer(4);
+  digitalWrite(LATCH_PIN, HIGH);
+  digitalWrite(LATCH_PIN, LOW);
+  delay(150);
+
+  SPI.transfer(8);
+  digitalWrite(LATCH_PIN, HIGH);
+  digitalWrite(LATCH_PIN, LOW);
+  delay(150);
+
+  SPI.transfer(16);
+  digitalWrite(LATCH_PIN, HIGH);
+  digitalWrite(LATCH_PIN, LOW);
+  delay(150);
+
+  SPI.transfer(32);
+  digitalWrite(LATCH_PIN, HIGH);
+  digitalWrite(LATCH_PIN, LOW);
+  delay(150);
+
+  SPI.transfer(64);
+  digitalWrite(LATCH_PIN, HIGH);
+  digitalWrite(LATCH_PIN, LOW);
+  delay(150);
+
+  SPI.transfer(128);
+  digitalWrite(LATCH_PIN, HIGH);
+  digitalWrite(LATCH_PIN, LOW);
+  delay(150);
 }
